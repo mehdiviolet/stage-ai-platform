@@ -13,7 +13,16 @@ function ChatPage() {
     <div>
       {loading && <p>Caricamento ...</p>}
       {error && <p>Errore: {error}</p>}
+      {messages.length === 0 && <p>Nessun mesagio ancora.</p>}
+      {messages.length !== 0 &&
+        messages.map((msg) => (
+          <div key={msg.id}>
+            {msg.role} : {msg.content}
+          </div>
+        ))}
       <button onClick={handleSend}>Invia</button>
     </div>
   );
 }
+
+export default ChatPage;
