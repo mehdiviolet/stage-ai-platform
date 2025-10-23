@@ -1,11 +1,18 @@
 import { useAppDispatch, useAppSelector } from "../../app/hooks";
-import { sendMessage } from "./chatSlice";
+import { appendLocalMessage, sendMessage } from "./chatSlice";
 
 function ChatPage() {
   const dispatch = useAppDispatch();
   const { messages, loading, error } = useAppSelector((s) => s.chat);
 
   const handleSend = async () => {
+    dispatch(
+      appendLocalMessage({
+        role: "user",
+        content: "Ciao!",
+      })
+    );
+
     await dispatch(sendMessage({ message: "Ciao!" }));
   };
 
