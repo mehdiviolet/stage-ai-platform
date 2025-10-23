@@ -1,5 +1,5 @@
-import { useAppDispatch, useAppSelector } from "../../app/hooks";
-import { appendLocalMessage, sendMessage } from "./chatSlice";
+import { useAppDispatch, useAppSelector } from "../app/hooks";
+import { appendLocalMessage, sendMessage } from "../features/chat/chatSlice";
 
 function ChatPage() {
   const dispatch = useAppDispatch();
