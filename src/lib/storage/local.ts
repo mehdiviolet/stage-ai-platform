@@ -15,7 +15,7 @@ export const local = {
       console.error("Error writing local storage", err);
     }
   },
-  remove(key: string): void {
+  del(key: string): void {
     try {
       localStorage.removeItem(key);
     } catch (err) {

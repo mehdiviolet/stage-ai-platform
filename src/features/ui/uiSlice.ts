@@ -3,6 +3,7 @@ import { local } from "../../lib/storage/local";
 
 type UIState = {
   theme: "light" | "dark";
+  language: "en" | "it";
   sidebarOpen: boolean;
   notifications: Array<{
     id: string;
@@ -11,10 +12,9 @@ type UIState = {
   }>;
 };
 
-const savedTheme = local.get<"light" | "dark">("theme");
-
 const initialState: UIState = {
-  theme: savedTheme === "dark" ? "dark" : "light",
+  theme: (local.get<string>("theme") as "light" | "dark") || "light",
+  language: (local.get<string>("language") as "en" | "it") || "it",
   sidebarOpen: true,
   notifications: [],
 };
@@ -25,7 +25,7 @@ const uiSlice = createSlice({
   reducers: {
     toggleTheme: (s) => {
       s.theme = s.theme === "light" ? "dark" : "light";
-      local.set("theme", s.theme);
+      // local.set("theme", s.theme);
     },
     toggleSidebar: (s) => {
       s.sidebarOpen = !s.sidebarOpen;
@@ -39,6 +39,15 @@ const uiSlice = createSlice({
     removeNotification: (s, a) => {
       s.notifications = s.notifications.filter((n) => n.id !== a.payload);
     },
+    setLanguage: (s, a: PayloadAction<"it" | "en">) => {
+      s.language = a.payload;
+    },
+    resetSettings: (s) => {
+      s.theme = "light";
+      s.language = "it";
+      local.del("theme");
+      local.del("language");
+    },
   },
 });
 
@@ -47,5 +56,7 @@ export const {
   toggleSidebar,
   addNotification,
   removeNotification,
+  setLanguage,
+  resetSettings,
 } = uiSlice.actions;
 export default uiSlice.reducer;
