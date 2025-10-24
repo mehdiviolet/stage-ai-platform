@@ -1,5 +1,7 @@
+import { Button } from "@mui/material";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { appendLocalMessage, sendMessage } from "../features/chat/chatSlice";
+import { addNotification } from "../features/ui/uiSlice";
 
 function ChatPage() {
   const dispatch = useAppDispatch();
@@ -28,6 +30,31 @@ function ChatPage() {
           </div>
         ))}
       <button onClick={handleSend}>Invia</button>
+      <Button
+        onClick={() =>
+          dispatch(
+            addNotification({
+              message: "Test notifica successo!",
+              type: "success",
+            })
+          )
+        }
+      >
+        Test Success
+      </Button>
+
+      <Button
+        onClick={() =>
+          dispatch(
+            addNotification({
+              message: "Errore di test!",
+              type: "error",
+            })
+          )
+        }
+      >
+        Test Error
+      </Button>
     </div>
   );
 }

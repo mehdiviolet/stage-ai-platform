@@ -7,6 +7,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Outlet, useNavigate } from "react-router-dom";
+import { NotificationSnackbar } from "../NotificationSnackbar";
 
 export function AppLayout() {
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ export function AppLayout() {
       <Box component="footer" sx={{ p: 2, textAlign: "center" }}>
         © {new Date().getFullYear()} AI Platform
       </Box>
+      <NotificationSnackbar />
     </Box>
   );
 }

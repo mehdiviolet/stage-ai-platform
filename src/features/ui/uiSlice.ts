@@ -8,7 +8,7 @@ type UIState = {
   notifications: Array<{
     id: string;
     message: string;
-    type: "success" | "error" | "info";
+    type: "success" | "error" | "warning" | "info";
   }>;
 };
 
@@ -25,18 +25,20 @@ const uiSlice = createSlice({
   reducers: {
     toggleTheme: (s) => {
       s.theme = s.theme === "light" ? "dark" : "light";
-      // local.set("theme", s.theme);
     },
     toggleSidebar: (s) => {
       s.sidebarOpen = !s.sidebarOpen;
     },
     addNotification: (
       s,
-      a: PayloadAction<{ message: string; type: "success" | "error" | "info" }>
+      a: PayloadAction<{
+        message: string;
+        type: "success" | "error" | "warning" | "info";
+      }>
     ) => {
       s.notifications.push({ id: crypto.randomUUID(), ...a.payload });
     },
-    removeNotification: (s, a) => {
+    removeNotification: (s, a: PayloadAction<string>) => {
       s.notifications = s.notifications.filter((n) => n.id !== a.payload);
     },
     setLanguage: (s, a: PayloadAction<"it" | "en">) => {
