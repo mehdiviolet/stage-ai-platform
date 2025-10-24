@@ -6,6 +6,7 @@ import "./lib/api/interceptors";
 import { setupMockInterceptor } from "./lib/api/mock/mockInterceptor";
 import { Provider } from "react-redux";
 import { store } from "./app/store.ts";
+import { ThemeWrapper } from "./components/ThemeWrapper.tsx";
 
 // Setup mock DOPO interceptors normali
 setupMockInterceptor();
@@ -13,7 +14,9 @@ setupMockInterceptor();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <Provider store={store}>
-      <App />
+      <ThemeWrapper>
+        <App />
+      </ThemeWrapper>
     </Provider>
   </StrictMode>
 );
