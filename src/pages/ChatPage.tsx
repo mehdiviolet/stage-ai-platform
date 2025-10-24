@@ -15,7 +15,7 @@ function ChatPage() {
       })
     );
 
-    await dispatch(sendMessage({ message: "Ciao!" }));
+    await dispatch(sendMessage({ message: "Ciao!!!" }));
   };
 
   return (
