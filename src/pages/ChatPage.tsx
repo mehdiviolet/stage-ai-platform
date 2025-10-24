@@ -1,21 +1,36 @@
-import { Button } from "@mui/material";
+import { Box, Button, IconButton, TextField } from "@mui/material";
+import SendIcon from "@mui/icons-material/Send";
+
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { appendLocalMessage, sendMessage } from "../features/chat/chatSlice";
 import { addNotification } from "../features/ui/uiSlice";
+import { useState } from "react";
 
 function ChatPage() {
   const dispatch = useAppDispatch();
   const { messages, loading, error } = useAppSelector((s) => s.chat);
+  const [message, setMessage] = useState("");
+
+  const canSend = message.trim().length > 0 && !loading;
 
   const handleSend = async () => {
+    if (!message.trim() || loading) return;
+    setMessage("");
     dispatch(
       appendLocalMessage({
         role: "user",
-        content: "Ciao!",
+        content: message,
       })
     );
 
-    await dispatch(sendMessage({ message: "Ciao!!!" }));
+    await dispatch(sendMessage({ message }));
+  };
+
+  const handleKeyDown = function (e: React.KeyboardEvent) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
   };
 
   return (
@@ -29,8 +44,22 @@ function ChatPage() {
             {msg.role} : {msg.content}
           </div>
         ))}
-      <button onClick={handleSend}>Invia</button>
-      <Button
+      <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
+        <TextField
+          fullWidth
+          multiline
+          maxRows={4}
+          placeholder="Scrivi un messaggio..."
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={loading}
+        />
+        <IconButton color="primary" onClick={handleSend} disabled={!canSend}>
+          <SendIcon />
+        </IconButton>
+      </Box>
+      {/* <Button
         onClick={() =>
           dispatch(
             addNotification({
@@ -54,7 +83,7 @@ function ChatPage() {
         }
       >
         Test Error
-      </Button>
+      </Button> */}
     </div>
   );
 }
