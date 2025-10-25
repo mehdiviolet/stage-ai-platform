@@ -42,6 +42,22 @@ const chatSlice = createSlice({
       s.messages = [];
       s.loading = false;
     },
+    loadSession: (
+      s,
+      a: PayloadAction<{
+        id: string;
+        message: Array<{
+          id: string;
+          role: "user" | "assistant";
+          content: string;
+        }>;
+      }>
+    ) => {
+      s.sessionId = a.payload.id;
+      s.messages = a.payload.message;
+      s.error = undefined;
+      s.loading = false;
+    },
   },
   extraReducers: (b) => {
     b.addCase(sendMessage.pending, (s) => {
@@ -58,6 +74,6 @@ const chatSlice = createSlice({
       });
   },
 });
-export const { setSessionId, appendLocalMessage, resetChat } =
+export const { setSessionId, appendLocalMessage, resetChat, loadSession } =
   chatSlice.actions;
 export default chatSlice.reducer;
