@@ -237,8 +237,10 @@ function ChatPage() {
               sx={{
                 p: 1.5,
                 borderRadius: 2,
-                bgcolor: msg.role === "user" ? "primary.main" : "grey.100",
-                color: msg.role === "user" ? "white" : "text.primary",
+                bgcolor:
+                  msg.role === "user" ? "primary.main" : "background.paper",
+                color:
+                  msg.role === "user" ? "primary.contrastText" : "text.primary",
               }}
             >
               <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>

@@ -35,10 +35,10 @@ function HistoryPage() {
   const [sessions, setSessions] = useState<SavedSession[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // ✅ Carica sessioni da localStorage
+  // âœ… Carica sessioni da localStorage
   useEffect(() => {
     const saved = local.get<SavedSession[]>("chatHistory") || [];
-    // Ordina per data (più recente prima)
+    // Ordina per data (piÃ¹ recente prima)
     const sorted = saved.sort(
       (a, b) =>
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
@@ -46,7 +46,7 @@ function HistoryPage() {
     setSessions(sorted);
   }, []);
 
-  // ✅ Filtra sessioni per ricerca
+  // âœ… Filtra sessioni per ricerca
   const filteredSessions = sessions.filter((session) => {
     const query = searchQuery.toLowerCase();
     // Cerca nel titolo
@@ -57,9 +57,9 @@ function HistoryPage() {
     );
   });
 
-  // ✅ Carica sessione in ChatPage
+  // âœ… Carica sessione in ChatPage
   const handleLoadSession = (session: SavedSession) => {
-    dispatch(loadSession({ id: session.id, messages: session.messages }));
+    dispatch(loadSession({ id: session.id, message: session.messages }));
     dispatch(
       addNotification({
         message: "Conversazione caricata!",
@@ -69,7 +69,7 @@ function HistoryPage() {
     navigate("/"); // Redirect a ChatPage
   };
 
-  // ✅ Elimina sessione
+  // âœ… Elimina sessione
   const handleDeleteSession = (sessionId: string) => {
     const updated = sessions.filter((s) => s.id !== sessionId);
     setSessions(updated);
@@ -82,7 +82,7 @@ function HistoryPage() {
     );
   };
 
-  // ✅ Formatta data
+  // âœ… Formatta data
   const formatDate = (isoDate: string): string => {
     const date = new Date(isoDate);
     return date.toLocaleDateString("it-IT", {
