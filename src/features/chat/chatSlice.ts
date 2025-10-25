@@ -38,6 +38,10 @@ const chatSlice = createSlice({
     ) => {
       s.messages.push({ id: crypto.randomUUID(), ...a.payload });
     },
+    resetChat: (s) => {
+      s.messages = [];
+      s.loading = false;
+    },
   },
   extraReducers: (b) => {
     b.addCase(sendMessage.pending, (s) => {
@@ -54,5 +58,6 @@ const chatSlice = createSlice({
       });
   },
 });
-export const { setSessionId, appendLocalMessage } = chatSlice.actions;
+export const { setSessionId, appendLocalMessage, resetChat } =
+  chatSlice.actions;
 export default chatSlice.reducer;

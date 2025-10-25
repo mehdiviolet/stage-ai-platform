@@ -1,17 +1,44 @@
-import { Box, Button, IconButton, TextField } from "@mui/material";
+import {
+  AppBar,
+  Avatar,
+  Box,
+  Button,
+  IconButton,
+  Paper,
+  TextField,
+  Toolbar,
+  Typography,
+} from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
-
+import PersonIcon from "@mui/icons-material/Person";
+import SmartToyIcon from "@mui/icons-material/SmartToy";
+import AddIcon from "@mui/icons-material/Add";
+import SaveIcon from "@mui/icons-material/Save";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
-import { appendLocalMessage, sendMessage } from "../features/chat/chatSlice";
+import {
+  appendLocalMessage,
+  resetChat,
+  sendMessage,
+} from "../features/chat/chatSlice";
 import { addNotification } from "../features/ui/uiSlice";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { local } from "../lib/storage/local";
+
+type SavedSession = {
+  id: string;
+  title: string;
+  messages: Array<{ id: string; role: "user" | "assistant"; content: string }>;
+  createdAt: string;
+  updatedAt: string;
+};
 
 function ChatPage() {
   const dispatch = useAppDispatch();
-  const { messages, loading, error } = useAppSelector((s) => s.chat);
+  const { messages, loading, error, sessionId } = useAppSelector((s) => s.chat);
   const [message, setMessage] = useState("");
 
   const canSend = message.trim().length > 0 && !loading;
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const handleSend = async () => {
     if (!message.trim() || loading) return;
@@ -33,18 +60,172 @@ function ChatPage() {
     }
   };
 
+  const handleNewChat = () => {
+    dispatch(resetChat());
+    dispatch(
+      addNotification({
+        message: "Nuova chat iniziata!",
+        type: "info",
+      })
+    );
+  };
+
+  const generateTitle = (): string => {
+    const firstUserMsg = messages.find((m) => m.role === "user");
+    if (!firstUserMsg) return "Conversazione senza titolo!";
+    const title = firstUserMsg.content.slice(0, 30);
+    return title.length < firstUserMsg.content.length ? `${title}...` : title;
+  };
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSaveSession = () => {
+    if (messages.length === 0) {
+      dispatch(
+        addNotification({
+          message: "Nessun messagio da salvare",
+          type: "warning",
+        })
+      );
+      return;
+    }
+
+    const session: SavedSession = {
+      id: sessionId || crypto.randomUUID(),
+      title: generateTitle(),
+      messages,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const saved = local.get<SavedSession[]>("chatHistory") || [];
+    saved.push(session);
+    local.set("chatHistory", saved);
+    dispatch(
+      addNotification({
+        message: "Conversazione salvata!",
+        type: "success",
+      })
+    );
+  };
+
   return (
-    <div>
-      {loading && <p>Caricamento ...</p>}
-      {error && <p>Errore: {error}</p>}
-      {messages.length === 0 && <p>Nessun mesagio ancora.</p>}
-      {messages.length !== 0 &&
-        messages.map((msg) => (
-          <div key={msg.id}>
-            {msg.role} : {msg.content}
-          </div>
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        height: "calc(100vh - 200px)",
+      }}
+    >
+      {/* ✅ Header con azioni */}
+      <AppBar position="static" color="default" elevation={1} sx={{ mb: 2 }}>
+        <Toolbar variant="dense">
+          <Typography variant="h6" sx={{ flex: 1 }}>
+            Chat
+          </Typography>
+          <Button
+            startIcon={<AddIcon />}
+            onClick={handleNewChat}
+            sx={{ mr: 1 }}
+          >
+            Nuova chat
+          </Button>
+          <Button
+            startIcon={<SaveIcon />}
+            onClick={handleSaveSession}
+            disabled={messages.length === 0}
+          >
+            Salva sessione
+          </Button>
+        </Toolbar>
+      </AppBar>
+
+      {/* Area messaggi scrollabile */}
+      <Paper
+        elevation={1}
+        sx={{
+          flex: 1,
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          p: 2,
+          mb: 2,
+          bgcolor: "background.default",
+        }}
+      >
+        {/* Empty state */}
+        {messages.length === 0 && (
+          <Box sx={{ textAlign: "center", mt: 4, color: "text.secondary" }}>
+            <SmartToyIcon sx={{ fontSize: 60, mb: 2 }} />
+            <Typography variant="h6">Nessun messaggio ancora</Typography>
+            <Typography variant="body2">Inizia una conversazione!</Typography>
+          </Box>
+        )}
+
+        {/* Messaggi */}
+        {messages.map((msg) => (
+          <Box
+            key={msg.id}
+            sx={{
+              display: "flex",
+              gap: 1,
+              alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
+              maxWidth: "70%",
+              flexDirection: msg.role === "user" ? "row-reverse" : "row",
+            }}
+          >
+            <Avatar
+              sx={{
+                bgcolor: msg.role === "user" ? "primary.main" : "grey.400",
+                width: 32,
+                height: 32,
+              }}
+            >
+              {msg.role === "user" ? (
+                <PersonIcon fontSize="small" />
+              ) : (
+                <SmartToyIcon fontSize="small" />
+              )}
+            </Avatar>
+
+            <Paper
+              elevation={2}
+              sx={{
+                p: 1.5,
+                borderRadius: 2,
+                bgcolor: msg.role === "user" ? "primary.main" : "grey.100",
+                color: msg.role === "user" ? "white" : "text.primary",
+              }}
+            >
+              <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
+                {msg.content}
+              </Typography>
+            </Paper>
+          </Box>
         ))}
-      <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
+
+        {/* Loading indicator */}
+        {loading && (
+          <Box sx={{ display: "flex", gap: 1, alignSelf: "flex-start" }}>
+            <Avatar sx={{ bgcolor: "grey.400", width: 32, height: 32 }}>
+              <SmartToyIcon fontSize="small" />
+            </Avatar>
+            <Paper elevation={2} sx={{ p: 1.5, bgcolor: "grey.100" }}>
+              <Typography variant="body2" color="text.secondary">
+                Sto scrivendo...
+              </Typography>
+            </Paper>
+          </Box>
+        )}
+
+        <div ref={messagesEndRef} />
+      </Paper>
+
+      {/* Input area */}
+      <Box sx={{ display: "flex", gap: 1 }}>
         <TextField
           fullWidth
           multiline
@@ -55,36 +236,22 @@ function ChatPage() {
           onKeyDown={handleKeyDown}
           disabled={loading}
         />
-        <IconButton color="primary" onClick={handleSend} disabled={!canSend}>
+        <IconButton
+          color="primary"
+          onClick={handleSend}
+          disabled={!canSend}
+          size="large"
+        >
           <SendIcon />
         </IconButton>
       </Box>
-      {/* <Button
-        onClick={() =>
-          dispatch(
-            addNotification({
-              message: "Test notifica successo!",
-              type: "success",
-            })
-          )
-        }
-      >
-        Test Success
-      </Button>
 
-      <Button
-        onClick={() =>
-          dispatch(
-            addNotification({
-              message: "Errore di test!",
-              type: "error",
-            })
-          )
-        }
-      >
-        Test Error
-      </Button> */}
-    </div>
+      {error && (
+        <Typography variant="caption" color="error" sx={{ mt: 1 }}>
+          {error}
+        </Typography>
+      )}
+    </Box>
   );
 }
 
