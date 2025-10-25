@@ -19,6 +19,7 @@ import {
   appendLocalMessage,
   resetChat,
   sendMessage,
+  setSessionId,
 } from "../features/chat/chatSlice";
 import { addNotification } from "../features/ui/uiSlice";
 import { useEffect, useRef, useState } from "react";
@@ -39,6 +40,13 @@ function ChatPage() {
 
   const canSend = message.trim().length > 0 && !loading;
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 🆕 Inizializza sessionId se non esiste (per la prima chat)
+  useEffect(() => {
+    if (!sessionId) {
+      dispatch(setSessionId(crypto.randomUUID()));
+    }
+  }, [sessionId, dispatch]);
 
   const handleSend = async () => {
     if (!message.trim() || loading) return;
@@ -81,6 +89,39 @@ function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // 🆕 Salvataggio automatico della chat ad ogni modifica
+  useEffect(() => {
+    if (messages.length === 0 || !sessionId) return; // Non salvare chat vuote o senza ID
+
+    // Recupera tutte le sessioni salvate
+    const saved = local.get<SavedSession[]>("chatHistory") || [];
+
+    // Trova se esiste già questa sessione
+    const existingIndex = saved.findIndex((s) => s.id === sessionId);
+    const existingSession = existingIndex >= 0 ? saved[existingIndex] : null;
+
+    const session: SavedSession = {
+      id: sessionId,
+      title: generateTitle(),
+      messages,
+      createdAt: existingSession?.createdAt || new Date().toISOString(), // Mantieni data originale
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (existingIndex >= 0) {
+      // Aggiorna sessione esistente
+      saved[existingIndex] = session;
+    } else {
+      // Aggiungi nuova sessione
+      saved.push(session);
+    }
+
+    local.set("chatHistory", saved);
+
+    // Notifica altre tab/componenti dell'aggiornamento
+    window.dispatchEvent(new Event("chatHistoryUpdated"));
+  }, [messages, sessionId]);
+
   const handleSaveSession = () => {
     if (messages.length === 0) {
       dispatch(
@@ -119,8 +160,8 @@ function ChatPage() {
         height: "calc(100vh - 200px)",
       }}
     >
-      {/* ✅ Header con azioni */}
-      <AppBar position="static" color="default" elevation={1} sx={{ mb: 2 }}>
+      {/* âœ… Header con azioni */}
+      {/* <AppBar position="static" color="default" elevation={1} sx={{ mb: 2 }}>
         <Toolbar variant="dense">
           <Typography variant="h6" sx={{ flex: 1 }}>
             Chat
@@ -140,7 +181,7 @@ function ChatPage() {
             Salva sessione
           </Button>
         </Toolbar>
-      </AppBar>
+      </AppBar> */}
 
       {/* Area messaggi scrollabile */}
       <Paper

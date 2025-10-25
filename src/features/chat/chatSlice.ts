@@ -41,6 +41,7 @@ const chatSlice = createSlice({
     resetChat: (s) => {
       s.messages = [];
       s.loading = false;
+      s.sessionId = crypto.randomUUID();
     },
     loadSession: (
       s,
