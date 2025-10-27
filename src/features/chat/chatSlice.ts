@@ -3,25 +3,88 @@ import {
   createAsyncThunk,
   type PayloadAction,
 } from "@reduxjs/toolkit";
-import { api } from "../../lib/api/client";
+import { conversationsApi } from "./api";
+
+type Message = {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+  mediaUrls?: string[];
+};
+
+type Conversation = {
+  id: number;
+  name: string;
+  model: string;
+  created_at: string;
+  updated_at: string;
+  messageCount: number;
+};
 
 type ChatState = {
-  sessionId?: string;
-  messages: Array<{ id: string; role: "user" | "assistant"; content: string }>;
+  conversations: Conversation[];
+  currentConversation: {
+    id: number;
+    name: string;
+    model: string;
+    messages: Message[];
+  } | null;
   loading: boolean;
   error?: string;
 };
 
 const initialState: ChatState = {
-  messages: [],
+  conversations: [],
+  currentConversation: null,
   loading: false,
 };
 
+// AsyncThunks
+export const createConversation = createAsyncThunk(
+  "chat/createConversation",
+  async (payload: { name: string; model: string }) => {
+    const { data } = await conversationsApi.create(payload);
+    return data;
+  }
+);
+
+export const loadConversations = createAsyncThunk(
+  "chat/loadConversations",
+  async () => {
+    const { data } = await conversationsApi.getAll();
+    return data;
+  }
+);
+
+export const loadConversationById = createAsyncThunk(
+  "chat/loadConversationById",
+  async (id: number) => {
+    const { data } = await conversationsApi.getById(id);
+    return data;
+  }
+);
+
 export const sendMessage = createAsyncThunk(
   "chat/sendMessage",
-  async (payload: { message: string; sessionId?: string }) => {
-    const { data } = await api.post("/chat/ask", payload);
+  async (payload: {
+    conversationId: number;
+    message: string;
+    media?: any[];
+  }) => {
+    const { data } = await conversationsApi.sendMessage(
+      payload.conversationId,
+      { message: payload.message, media: payload.media }
+    );
     return data;
+  }
+);
+
+export const deleteConversation = createAsyncThunk(
+  "chat/deleteConversation",
+  async (id: number) => {
+    await conversationsApi.delete(id);
+    return id;
   }
 );
 
@@ -29,52 +92,96 @@ const chatSlice = createSlice({
   name: "chat",
   initialState,
   reducers: {
-    setSessionId: (s, a: PayloadAction<string | undefined>) => {
-      s.sessionId = a.payload;
+    resetChat: (s) => {
+      s.currentConversation = null;
+      s.loading = false;
+      s.error = undefined;
     },
     appendLocalMessage: (
       s,
       a: PayloadAction<{ role: "user" | "assistant"; content: string }>
     ) => {
-      s.messages.push({ id: crypto.randomUUID(), ...a.payload });
-    },
-    resetChat: (s) => {
-      s.messages = [];
-      s.loading = false;
-      s.sessionId = crypto.randomUUID();
-    },
-    loadSession: (
-      s,
-      a: PayloadAction<{
-        id: string;
-        message: Array<{
-          id: string;
-          role: "user" | "assistant";
-          content: string;
-        }>;
-      }>
-    ) => {
-      s.sessionId = a.payload.id;
-      s.messages = a.payload.message;
-      s.error = undefined;
-      s.loading = false;
+      if (s.currentConversation) {
+        s.currentConversation.messages.push({
+          id: Date.now(),
+          timestamp: new Date().toISOString(),
+          ...a.payload,
+        });
+      }
     },
   },
   extraReducers: (b) => {
-    b.addCase(sendMessage.pending, (s) => {
+    // CREATE CONVERSATION
+    b.addCase(createConversation.pending, (s) => {
       s.loading = true;
       s.error = undefined;
     })
+      .addCase(createConversation.fulfilled, (s, a) => {
+        s.loading = false;
+        s.conversations.unshift(a.payload.conversation);
+        s.currentConversation = {
+          ...a.payload.conversation,
+          messages: [],
+        };
+      })
+      .addCase(createConversation.rejected, (s, a) => {
+        s.loading = false;
+        s.error = a.error.message;
+      })
+
+      // LOAD CONVERSATIONS
+      .addCase(loadConversations.pending, (s) => {
+        s.loading = true;
+        s.error = undefined;
+      })
+      .addCase(loadConversations.fulfilled, (s, a) => {
+        s.loading = false;
+        s.conversations = a.payload.conversations;
+      })
+      .addCase(loadConversations.rejected, (s, a) => {
+        s.loading = false;
+        s.error = a.error.message;
+      })
+
+      // LOAD CONVERSATION BY ID
+      .addCase(loadConversationById.pending, (s) => {
+        s.loading = true;
+        s.error = undefined;
+      })
+      .addCase(loadConversationById.fulfilled, (s, a) => {
+        s.loading = false;
+        s.currentConversation = a.payload.conversation;
+      })
+      .addCase(loadConversationById.rejected, (s, a) => {
+        s.loading = false;
+        s.error = a.error.message;
+      })
+
+      // SEND MESSAGE
+      .addCase(sendMessage.pending, (s) => {
+        s.loading = true;
+        s.error = undefined;
+      })
       .addCase(sendMessage.fulfilled, (s, a) => {
         s.loading = false;
-        s.messages.push(a.payload.message);
+        if (s.currentConversation) {
+          s.currentConversation.messages.push(a.payload.message);
+        }
       })
       .addCase(sendMessage.rejected, (s, a) => {
         s.loading = false;
         s.error = a.error.message;
+      })
+
+      // DELETE CONVERSATION
+      .addCase(deleteConversation.fulfilled, (s, a) => {
+        s.conversations = s.conversations.filter((c) => c.id !== a.payload);
+        if (s.currentConversation?.id === a.payload) {
+          s.currentConversation = null;
+        }
       });
   },
 });
-export const { setSessionId, appendLocalMessage, resetChat, loadSession } =
-  chatSlice.actions;
+
+export const { resetChat, appendLocalMessage } = chatSlice.actions;
 export default chatSlice.reducer;

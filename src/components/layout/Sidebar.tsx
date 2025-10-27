@@ -19,7 +19,8 @@ import HomeIcon from "@mui/icons-material/Home";
 import HistoryIcon from "@mui/icons-material/History";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { useAppDispatch } from "../../app/hooks";
-import { loadSession, resetChat } from "../../features/chat/chatSlice";
+// import { loadSession, resetChat } from "../../features/chat/chatSlice";
+import { resetChat } from "../../features/chat/chatSlice";
 import { addNotification } from "../../features/ui/uiSlice";
 import { local } from "../../lib/storage/local";
 
@@ -90,22 +91,22 @@ export function Sidebar({ onItemClick }: SidebarProps) {
   };
 
   // Carica sessione esistente
-  const handleLoadSession = (session: SavedSession) => {
-    dispatch(
-      loadSession({
-        id: session.id,
-        message: session.messages,
-      })
-    );
-    dispatch(
-      addNotification({
-        message: `Caricata: ${session.title}`,
-        type: "success",
-      })
-    );
-    navigate("/");
-    onItemClick(); // Chiude drawer mobile
-  };
+  // const handleLoadSession = (session: SavedSession) => {
+  //   dispatch(
+  //     loadSession({
+  //       id: session.id,
+  //       message: session.messages,
+  //     })
+  //   );
+  //   dispatch(
+  //     addNotification({
+  //       message: `Caricata: ${session.title}`,
+  //       type: "success",
+  //     })
+  //   );
+  //   navigate("/");
+  //   onItemClick(); // Chiude drawer mobile
+  // };
 
   // Elimina sessione
   const handleDeleteSession = (e: React.MouseEvent, sessionId: string) => {
