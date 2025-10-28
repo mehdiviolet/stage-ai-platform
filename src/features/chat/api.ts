@@ -41,3 +41,11 @@ export const ollamaApi = {
   // GET /api/tags
   getModels: () => api.get("/api/tags"),
 };
+// ==================== MEDIA ====================
+export const mediaApi = {
+  uploadFile: (payload: {
+    base64: string;
+    fileName?: string;
+    mimeType?: string;
+  }) => api.post("/media/upload", payload),
+};

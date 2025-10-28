@@ -3,6 +3,7 @@ import {
   Avatar,
   Box,
   Button,
+  Chip,
   IconButton,
   Paper,
   TextField,
@@ -14,6 +15,8 @@ import PersonIcon from "@mui/icons-material/Person";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import AddIcon from "@mui/icons-material/Add";
 import SaveIcon from "@mui/icons-material/Save";
+import CloseIcon from "@mui/icons-material/Close";
+import ImageIcon from "@mui/icons-material/Image";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import {
   appendLocalMessage,
@@ -23,13 +26,46 @@ import {
 } from "../features/chat/chatSlice";
 import { addNotification } from "../features/ui/uiSlice";
 import { useEffect, useRef, useState } from "react";
+import { AttachFile } from "@mui/icons-material";
+import AttachFileIcon from "@mui/icons-material/AttachFile";
+import { mediaApi } from "../features/chat/api";
+
+// Helper: converte File in stringa base64
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result); // già in formato "data:image/png;base64,..."
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+type FileWithPreview = {
+  file: File;
+  preview: string; // URL temporaneo per anteprima
+};
 
 function ChatPage() {
   const dispatch = useAppDispatch();
   const { currentConversation, loading, error } = useAppSelector((s) => s.chat);
   const [message, setMessage] = useState("");
+  const [attachedFiles, setAttachedFiles] = useState<FileWithPreview[]>([]);
 
-  const canSend = message.trim().length > 0 && !loading;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Apre il dialogo di selezione file
+  const handleAttachClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  // Gestisce i file selezionati
+
+  // const canSend = message.trim().length > 0 && !loading;
+  const canSend =
+    (message.trim().length > 0 || attachedFiles.length > 0) && !loading;
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -45,19 +81,101 @@ function ChatPage() {
   }, []);
 
   const handleSend = async () => {
-    if (!message.trim() || loading || !currentConversation) return;
+    if (
+      (!message.trim() && attachedFiles.length === 0) ||
+      loading ||
+      !currentConversation
+    )
+      return;
 
     const userMessage = message;
     setMessage("");
 
-    dispatch(appendLocalMessage({ role: "user", content: userMessage }));
+    // 🆕 STEP 1: Carica file su S3 PRIMA di inviare il messaggio
+    let uploadedUrls: string[] = [];
 
+    if (attachedFiles.length > 0) {
+      try {
+        // Upload ogni file su S3
+        for (const item of attachedFiles) {
+          const base64 = await fileToBase64(item.file);
+
+          // Chiamata a /media/upload
+          const uploadResponse = await mediaApi.uploadFile({
+            base64,
+            fileName: item.file.name,
+            mimeType: item.file.type,
+          });
+
+          // Salva l'URL S3 ritornato
+          uploadedUrls.push(uploadResponse.data.url);
+        }
+      } catch (error) {
+        console.error("❌ Errore upload media:", error);
+        dispatch(
+          addNotification({
+            message: "Errore nel caricamento dei file",
+            type: "error",
+          })
+        );
+        return; // Interrompi se upload fallisce
+      }
+    }
+
+    // 🆕 STEP 2: Aggiungi messaggio utente localmente CON gli URL S3
+    dispatch(
+      appendLocalMessage({
+        role: "user",
+        content: userMessage,
+        mediaUrls: uploadedUrls.length > 0 ? uploadedUrls : undefined,
+      })
+    );
+
+    // 🆕 STEP 3: Prepara media per Ollama (serve ancora base64 per analisi AI)
+    const mediaArray = await Promise.all(
+      attachedFiles.map(async (item) => {
+        const base64 = await fileToBase64(item.file);
+        return {
+          base64,
+          fileName: item.file.name,
+          mimeType: item.file.type,
+        };
+      })
+    );
+
+    // STEP 4: Invia messaggio con media (per far analizzare l'immagine all'AI)
     await dispatch(
       sendMessage({
         conversationId: currentConversation.id,
         message: userMessage,
+        media: mediaArray.length > 0 ? mediaArray : undefined,
       })
     );
+
+    // STEP 5: Pulisci
+    attachedFiles.forEach((item) => URL.revokeObjectURL(item.preview));
+    setAttachedFiles([]);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const newFiles = Array.from(files).map((file) => ({
+        file,
+        preview: URL.createObjectURL(file), // 👈 Crea URL temporaneo
+      }));
+      setAttachedFiles((prev) => [...prev, ...newFiles]);
+      e.target.value = "";
+    }
+  };
+
+  // Rimuove un file dall'anteprima
+  const handleRemoveFile = (index: number) => {
+    setAttachedFiles((prev) => {
+      const fileToRemove = prev[index];
+      URL.revokeObjectURL(fileToRemove.preview); // 👈 Libera memoria
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const handleKeyDown = function (e: React.KeyboardEvent) {
@@ -139,9 +257,37 @@ function ChatPage() {
                   msg.role === "user" ? "primary.contrastText" : "text.primary",
               }}
             >
-              <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
-                {msg.content}
-              </Typography>
+              {/* <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}> */}
+              {msg.mediaUrls && msg.mediaUrls.length > 0 && (
+                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 1 }}>
+                  {msg.mediaUrls.map((url, idx) => (
+                    <Box
+                      key={idx}
+                      component="img"
+                      src={url}
+                      alt={`Media ${idx + 1}`}
+                      sx={{
+                        maxWidth: 200,
+                        maxHeight: 200,
+                        borderRadius: 1,
+                        objectFit: "cover",
+                        cursor: "pointer",
+                        "&:hover": {
+                          opacity: 0.8,
+                        },
+                      }}
+                      onClick={() => window.open(url, "_blank")} // 🆕 Click per aprire full-size
+                    />
+                  ))}
+                </Box>
+              )}
+              {/* {msg.content} */}
+              {/* </Typography> */}
+              {msg.content && (
+                <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
+                  {msg.content}
+                </Typography>
+              )}
             </Paper>
           </Box>
         ))}
@@ -163,8 +309,77 @@ function ChatPage() {
         <div ref={messagesEndRef} />
       </Paper>
 
+      {/* Anteprima file allegati */}
+      {attachedFiles.length > 0 && (
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
+          {attachedFiles.map((item, index) => (
+            <Box
+              key={index}
+              sx={{
+                position: "relative",
+                width: 80,
+                height: 80,
+                borderRadius: 2,
+                overflow: "hidden",
+                border: "2px solid",
+                borderColor: "primary.main",
+              }}
+            >
+              {/* Thumbnail immagine */}
+              <img
+                src={item.preview}
+                alt={item.file.name}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+              />
+
+              {/* Pulsante X per rimuovere */}
+              <IconButton
+                size="small"
+                onClick={() => handleRemoveFile(index)}
+                sx={{
+                  position: "absolute",
+                  top: 4,
+                  right: 4,
+                  bgcolor: "rgba(0,0,0,0.6)",
+                  color: "white",
+                  "&:hover": {
+                    bgcolor: "rgba(0,0,0,0.8)",
+                  },
+                  width: 24,
+                  height: 24,
+                }}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          ))}
+        </Box>
+      )}
+
       {/* Input area */}
       <Box sx={{ display: "flex", gap: 1 }}>
+        {/* Input file nascosto */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,application/pdf"
+          multiple
+          style={{ display: "none" }}
+          onChange={handleFileChange}
+        />
+        <IconButton
+          color="default"
+          onClick={handleAttachClick}
+          disabled={loading}
+          size="large"
+          title="Allega file"
+        >
+          <AttachFileIcon />
+        </IconButton>
         <TextField
           fullWidth
           multiline
@@ -175,6 +390,7 @@ function ChatPage() {
           onKeyDown={handleKeyDown}
           disabled={loading}
         />
+
         <IconButton
           color="primary"
           onClick={handleSend}

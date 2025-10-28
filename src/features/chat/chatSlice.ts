@@ -99,7 +99,11 @@ const chatSlice = createSlice({
     },
     appendLocalMessage: (
       s,
-      a: PayloadAction<{ role: "user" | "assistant"; content: string }>
+      a: PayloadAction<{
+        role: "user" | "assistant";
+        content: string;
+        mediaUrls?: string[]; // 🆕 AGGIUNGI QUESTO
+      }>
     ) => {
       if (s.currentConversation) {
         s.currentConversation.messages.push({
@@ -164,6 +168,7 @@ const chatSlice = createSlice({
       })
       .addCase(sendMessage.fulfilled, (s, a) => {
         s.loading = false;
+        console.log("✅ Messaggio da salvare:", a.payload.message);
         if (s.currentConversation) {
           s.currentConversation.messages.push(a.payload.message);
         }
